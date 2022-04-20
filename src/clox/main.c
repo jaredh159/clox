@@ -2,15 +2,17 @@
 #include "common.h"
 #include "debug.h"
 
-int main(int argc, const char** argv) {
+int main() {
   chunk_t chunk;
   init_chunk(&chunk);
 
-  int constant = add_constant(&chunk, 1.2);
-  write_chunk(&chunk, OP_CONSTANT);
-  write_chunk(&chunk, constant);
+  int i;
+  for (i = 0; i < 258; i++) {
+    write_constant(&chunk, i, i / 2 + 1);
+  }
 
-  write_chunk(&chunk, OP_RETURN);
+  write_chunk(&chunk, OP_RETURN, i / 2 + 2);
+
   disassemble_chunk(&chunk, "test chunk");
   free_chunk(&chunk);
   return 0;

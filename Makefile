@@ -1,4 +1,30 @@
-FLAGS = -Wall -Wextra -Werror -pedantic -std=c11
+FLAGS = -Wall -Wextra -g -Werror -Wno-unused-variable -Wno-unused-parameter -pedantic -std=c11
+
+.SILENT: test runtests testwatch clox
 
 clox:
-	cc -o ./.build/clox ./src/clox/main.c ./src/clox/chunk.c ./src/clox/memory.c ./src/clox/debug.c ./src/clox/value.c
+	cc -o ./.build/clox \
+	./src/clox/main.c \
+	./src/clox/chunk.c \
+	./src/clox/memory.c \
+	./src/clox/debug.c \
+	./src/clox/value.c \
+	$(FLAGS)
+
+test:
+	cc -o ./.build/test \
+	./src/test/test.c \
+	./src/test/op-codes.c \
+	./src/test/line-encoding.c \
+	./src/test/munit/munit.c \
+	./src/clox/chunk.c \
+	./src/clox/value.c \
+	./src/clox/memory.c \
+	./src/clox/debug.c \
+	$(FLAGS)
+
+runtests:
+	clear; make test && ./.build/test; printf "\n"
+
+testwatch:
+	watchexec --restart --watch src --exts c,h --signal SIGINT make runtests

@@ -4,6 +4,8 @@
 
 static int simple_instruction(const char* name, int offset);
 static int constant_instruction(const char* name, chunk_t* chunk, int offset);
+static int long_constant_instruction(
+  const char* name, chunk_t* chunk, int offset);
 
 void disassemble_chunk(chunk_t* chunk, const char* name) {
   printf("== %s ==\n", name);
@@ -16,10 +18,19 @@ void disassemble_chunk(chunk_t* chunk, const char* name) {
 int disassemble_instruction(chunk_t* chunk, int offset) {
   printf("%04d ", offset);
 
+  int offset_line = get_line(chunk, offset);
+  if (offset > 0 && offset_line == get_line(chunk, offset - 1)) {
+    printf("   \" ");
+  } else {
+    printf("%4d ", offset_line);
+  }
+
   uint8_t instruction = chunk->code[offset];
   switch (instruction) {
     case OP_CONSTANT:
       return constant_instruction("OP_CONSTANT", chunk, offset);
+    case OP_CONSTANT_LONG:
+      return long_constant_instruction("OP_CONSTANT_LONG", chunk, offset);
     case OP_RETURN:
       return simple_instruction("OP_RETURN", offset);
     default:
@@ -34,9 +45,19 @@ static int simple_instruction(const char* name, int offset) {
 }
 
 static int constant_instruction(const char* name, chunk_t* chunk, int offset) {
-  uint8_t constant = chunk->code[offset + 1];
-  printf("%-16s %4d '", name, constant);
-  print_value(chunk->constants.values[constant]);
+  uint8_t index = chunk->code[offset + 1];
+  printf("%-16s %4d '", name, index);
+  print_value(chunk->constants.values[index]);
   printf("'\n");
   return offset + 2;
+}
+
+static int long_constant_instruction(
+  const char* name, chunk_t* chunk, int offset) {
+  int index = chunk->code[offset + 1] << 16 | chunk->code[offset + 2] << 8 |
+              chunk->code[offset + 3];
+  printf("%-16s %4d '", name, index);
+  print_value(chunk->constants.values[index]);
+  printf("'\n");
+  return offset + 4;
 }
