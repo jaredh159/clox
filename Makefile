@@ -1,6 +1,6 @@
 FLAGS = -Wall -Wextra -g -Werror -Wno-unused-variable -Wno-unused-parameter -pedantic -std=c11
 
-.SILENT: test runtests testwatch clox
+.SILENT: test runtests testwatch clox run
 
 clox:
 	cc -o ./.build/clox \
@@ -9,7 +9,11 @@ clox:
 	./src/clox/memory.c \
 	./src/clox/debug.c \
 	./src/clox/value.c \
+	./src/clox/vm.c \
 	$(FLAGS)
+
+run:
+	make && ./.build/clox
 
 test:
 	cc -o ./.build/test \
@@ -21,7 +25,7 @@ test:
 	./src/clox/value.c \
 	./src/clox/memory.c \
 	./src/clox/debug.c \
-	$(FLAGS)
+	$(FLAGS) -Wno-unused-function
 
 runtests:
 	clear; make test && ./.build/test; printf "\n"

@@ -88,6 +88,10 @@ static void encode_line(lines_t* array, int line) {
     for (int i = old_cap; i < array->capacity; i++) {
       array->lines[i] = 0;
     }
+    if (array->capacity < line) {
+      encode_line(array, line);
+      return;
+    }
   }
 
   array->count = line;

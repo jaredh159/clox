@@ -25,11 +25,24 @@ static result_t skipping_lines(const param_t params[], void* fixture) {
   return MUNIT_OK;
 }
 
+static result_t repro_example(const param_t params[], void* fixture) {
+  chunk_t* chunk = fixture;
+  int constant = add_constant(chunk, 1.2);
+  write_chunk(chunk, OP_CONSTANT, 123);
+  assert_int(get_line(chunk, 0), ==, 123);
+  write_chunk(chunk, constant, 123);
+  assert_int(get_line(chunk, 1), ==, 123);
+  write_chunk(chunk, OP_RETURN, 123);
+  assert_int(get_line(chunk, 2), ==, 123);
+  return MUNIT_OK;
+}
+
 // plumbing
 
 static test_t tests[] = {
   TEST("/single-line", single_line),
   TEST("/skipping-lines", skipping_lines),
+  TEST("/repro-example", repro_example),
   TESTS_END,
 };
 
