@@ -7,8 +7,10 @@
 #include <stdlib.h>
 #include "../clox/chunk.h"
 #include "../clox/common.h"
+#include "../clox/compiler.h"
 #include "../clox/debug.h"
 #include "../clox/memory.h"
+#include "../clox/scanner.h"
 #include "../clox/value.h"
 #include "munit/munit.h"
 

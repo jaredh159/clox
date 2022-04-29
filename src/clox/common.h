@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define DEBUG_TRACE_EXECUTION
 
@@ -16,6 +17,10 @@
 typedef enum {
   ERR_OUT_OF_MEMORY = 1,
   ERR_GET_LINE,
+  ERR_COMPILE,
+  ERR_RUNTIME,
+  ERR_USAGE = 64,
+  ERR_IO = 74,
 } error_t;
 
 #endif
