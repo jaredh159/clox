@@ -8,7 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DEBUG_TRACE_EXECUTION
+// #define DEBUG_PRINT_CODE
+// #define DEBUG_TRACE_EXECUTION
 
 #define EXIT(code)                               \
   fprintf(stderr, "\x1b[31m" #code "\x1b[0m\n"); \

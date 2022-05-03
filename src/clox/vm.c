@@ -9,7 +9,7 @@ static void reset_stack() {
   vm.stack_top = vm.stack;
 }
 
-static interpret_result run() {
+static interpret_result_t run() {
 #define READ_BYTE() (*vm.ip++)
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
 #define BINARY_OP(op)  \
@@ -64,9 +64,22 @@ static interpret_result run() {
 #undef BINARY_OP
 }
 
-interpret_result interpret(const char* source) {
-  compile(source);
-  return INTERPRET_OK;
+interpret_result_t interpret(const char* source) {
+  chunk_t chunk;
+  init_chunk(&chunk);
+
+  if (!compile(source, &chunk)) {
+    free_chunk(&chunk);
+    return INTERPRET_COMPILE_ERROR;
+  }
+
+  vm.chunk = &chunk;
+  vm.ip = vm.chunk->code;
+
+  interpret_result_t result = run();
+
+  free_chunk(&chunk);
+  return result;
 }
 
 void init_vm() {
