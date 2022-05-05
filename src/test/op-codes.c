@@ -6,7 +6,7 @@ static void tear_down(void* fixture);
 static result_t op_long(const param_t params[], void* fixture) {
   chunk_t* chunk = fixture;
   for (int i = 0; i < 256; i++) {
-    write_constant(chunk, i, 1);
+    write_constant(chunk, NUMBER_VAL(i), 1);
   }
 
   // last non-long op code
@@ -15,7 +15,7 @@ static result_t op_long(const param_t params[], void* fixture) {
 
   // should be long opcode
   int count_before_long = chunk->count;
-  write_constant(chunk, 1, 2);
+  write_constant(chunk, NUMBER_VAL(1), 2);
   assert_int(chunk->count, ==, count_before_long + 4);
   assert_int(chunk->code[chunk->count - 4], ==, OP_CONSTANT_LONG);
   // 0x0 0x1 0x0 is 256 when reassembled

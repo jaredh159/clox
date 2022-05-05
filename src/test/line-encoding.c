@@ -27,7 +27,7 @@ static result_t skipping_lines(const param_t params[], void* fixture) {
 
 static result_t repro_example(const param_t params[], void* fixture) {
   chunk_t* chunk = fixture;
-  int constant = add_constant(chunk, 1.2);
+  int constant = add_constant(chunk, NUMBER_VAL(1.2));
   write_chunk(chunk, OP_CONSTANT, 123);
   assert_int(get_line(chunk, 0), ==, 123);
   write_chunk(chunk, constant, 123);

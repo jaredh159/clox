@@ -3,8 +3,9 @@
 extern suite_t line_encoding_suite;
 extern suite_t op_code_suite;
 extern suite_t scanning_suite;
+extern suite_t compiling_suite;
 
-suite_t suites[3];
+suite_t suites[4];
 
 suite_t main_suite = {
   .prefix = "clox",
@@ -18,6 +19,7 @@ int main(int argc, char* argv[]) {
   suites[0] = line_encoding_suite;
   suites[1] = op_code_suite;
   suites[2] = scanning_suite;
+  suites[3] = compiling_suite;
   main_suite.suites = suites;
   return munit_suite_main(&main_suite, NULL, argc, argv);
 }

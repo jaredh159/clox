@@ -23,8 +23,10 @@ test:
 	./src/test/op-codes.c \
 	./src/test/line-encoding.c \
 	./src/test/scanning.c \
+	./src/test/compiling.c \
 	./src/test/munit/munit.c \
 	./src/clox/chunk.c \
+	./src/clox/vm.c \
 	./src/clox/value.c \
 	./src/clox/memory.c \
 	./src/clox/compiler.c \

@@ -1,3 +1,7 @@
+#define DEBUG_PRINT_VM_RETURN
+#define DEBUG_PRINT_CODE
+#define DEBUG_TRACE_EXECUTION
+
 #include "chunk.h"
 #include "common.h"
 #include "debug.h"

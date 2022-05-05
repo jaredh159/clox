@@ -11,6 +11,14 @@
       "program": "${workspaceFolder}/.build/clox",
       "args": [],
       "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "debug test",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/.build/test",
+      "args": ["--no-fork", "--show-stderr"],
+      "cwd": "${workspaceFolder}"
     }
   ]
 }

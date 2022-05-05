@@ -19,6 +19,7 @@ typedef enum {
   INTERPRET_RUNTIME_ERROR,
 } interpret_result_t;
 
+value_t vm_last_value;
 void init_vm();
 void free_vm();
 interpret_result_t interpret(const char* source);
