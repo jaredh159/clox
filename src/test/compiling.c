@@ -8,6 +8,7 @@ extern value_t vm_last_value;
 void assert_clox_number(const char* source, double number);
 void assert_clox_bool(const char* source, bool boolean);
 void assert_clox_nil(const char* source);
+void assert_clox_string(const char* source, const char* expected);
 
 static result_t arithmetic_expressions(const param_t params[], void* fixture) {
   assert_clox_number("2 + 2", 4);
@@ -42,6 +43,8 @@ static result_t equality(const param_t params[], void* fixture) {
   assert_clox_bool("false != false", false);
   assert_clox_bool("1 != 2", true);
   assert_clox_bool("nil == nil", true);
+  assert_clox_bool("\"foo\" == \"foo\"", true);
+  assert_clox_bool("\"foo\" == \"bar\"", false);
   return MUNIT_OK;
 }
 
@@ -57,6 +60,12 @@ static result_t comparison(const param_t params[], void* fixture) {
   return MUNIT_OK;
 }
 
+static result_t strings(const param_t params[], void* fixture) {
+  assert_clox_string("\"foobar\"", "foobar");
+  assert_clox_string("\"foo\" + \"baz\"", "foobaz");
+  return MUNIT_OK;
+}
+
 // plumbing
 
 static test_t tests[] = {
@@ -65,6 +74,7 @@ static test_t tests[] = {
   TEST("/negation", negation),
   TEST("/equality", equality),
   TEST("/comparison", comparison),
+  TEST("/strings", strings),
   TESTS_END,
 };
 
@@ -98,4 +108,10 @@ void assert_clox_bool(const char* source, bool boolean) {
 void assert_clox_nil(const char* source) {
   interpret(source);
   assert_int(vm_last_value.type, ==, VAL_NIL);
+}
+
+void assert_clox_string(const char* source, const char* expected) {
+  interpret(source);
+  assert_int(vm_last_value.type, ==, VAL_OBJ);
+  assert_string_equal(AS_CSTRING(vm_last_value), expected);
 }

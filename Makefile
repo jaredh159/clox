@@ -27,6 +27,7 @@ test:
 	./src/test/munit/munit.c \
 	./src/clox/chunk.c \
 	./src/clox/vm.c \
+	./src/clox/object.c \
 	./src/clox/value.c \
 	./src/clox/memory.c \
 	./src/clox/compiler.c \
@@ -35,7 +36,7 @@ test:
 	$(FLAGS)
 
 runtests:
-	clear; make test && ./.build/test; printf "\n"
+	clear; make test && ./.build/test --no-fork --fatal-failures; printf "\n"
 
 testwatch:
 	watchexec --restart --watch src --exts c,h --signal SIGINT make runtests

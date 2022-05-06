@@ -11,6 +11,7 @@ typedef struct {
   uint8_t* ip;
   value_t stack[STACK_MAX];
   value_t* stack_top;
+  obj_t* objects;
 } VM;
 
 typedef enum {
@@ -18,6 +19,8 @@ typedef enum {
   INTERPRET_COMPILE_ERROR,
   INTERPRET_RUNTIME_ERROR,
 } interpret_result_t;
+
+extern VM vm;
 
 value_t vm_last_value;
 void init_vm();
