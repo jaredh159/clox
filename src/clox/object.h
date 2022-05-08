@@ -24,6 +24,7 @@ struct obj_string_t {
   obj_t obj;
   int length;
   char* chars;
+  uint32_t hash;
 };
 
 obj_string_t* take_string(char* chars, int length);

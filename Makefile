@@ -11,6 +11,8 @@ clox:
 	./src/clox/value.c \
 	./src/clox/compiler.c \
 	./src/clox/scanner.c \
+	./src/clox/object.c \
+	./src/clox/table.c \
 	./src/clox/vm.c \
 	$(FLAGS)
 
@@ -27,6 +29,7 @@ test:
 	./src/test/munit/munit.c \
 	./src/clox/chunk.c \
 	./src/clox/vm.c \
+	./src/clox/table.c \
 	./src/clox/object.c \
 	./src/clox/value.c \
 	./src/clox/memory.c \
