@@ -39,14 +39,14 @@ static result_t repro_example(const param_t params[], void* fixture) {
 
 // plumbing
 
-static test_t tests[] = {
+static test_t line_encoding_tests[] = {
   TEST("/single-line", single_line),
   TEST("/skipping-lines", skipping_lines),
   TEST("/repro-example", repro_example),
   TESTS_END,
 };
 
-SUITE("/line-encoding", line_encoding_suite, tests);
+SUITE("/line-encoding", line_encoding_suite, line_encoding_tests);
 
 static void* setup(const param_t params[], void* user_data) {
   chunk_t* chunk = malloc(sizeof(chunk_t));

@@ -28,12 +28,12 @@ static result_t op_long(const param_t params[], void* fixture) {
 
 // plumbing
 
-static test_t tests[] = {
+static test_t op_codes_tests[] = {
   TEST("/OP_CONSTANT_LONG", op_long),
   TESTS_END,
 };
 
-SUITE("/op-codes", op_code_suite, tests);
+SUITE("/op-codes", op_code_suite, op_codes_tests);
 
 static void* setup(const param_t params[], void* user_data) {
   chunk_t* chunk = malloc(sizeof(chunk_t));

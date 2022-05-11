@@ -39,7 +39,7 @@ test:
 	$(FLAGS)
 
 runtests:
-	clear; make test && ./.build/test --no-fork --fatal-failures; printf "\n"
+	clear; make test && ./.build/test --fatal-failures --show-stderr; printf "\n"
 
 testwatch:
 	watchexec --restart --watch src --exts c,h --signal SIGINT make runtests

@@ -86,7 +86,7 @@ static result_t keywords(const param_t params[], void* fixture) {
 
 // plumbing
 
-static test_t tests[] = {
+static test_t scanning_tests[] = {
   TEST("/simple-tokens", simple_tokens),
   TEST("/comments", comments),
   TEST("/strings", strings),
@@ -95,7 +95,7 @@ static test_t tests[] = {
   TESTS_END,
 };
 
-SUITE("/scanning", scanning_suite, tests);
+SUITE("/scanning", scanning_suite, scanning_tests);
 
 static void* setup(const param_t params[], void* user_data) {
   return NULL;
