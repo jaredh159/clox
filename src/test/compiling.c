@@ -73,6 +73,15 @@ static result_t global_variables(const param_t params[], void* fixture) {
   return MUNIT_OK;
 }
 
+static result_t local_variables(const param_t params[], void* fixture) {
+  assert_clox_number("var g; { var l = 3; g = l; } g;", 3);
+  assert_clox_number(
+    "var g; { var shadow = 3; { var shadow = 4; g = shadow; } } g;", 4);
+  assert_clox_number(
+    "var g; { var shadow = 3; { var shadow = 4; } g = shadow; } g;", 3);
+  return MUNIT_OK;
+}
+
 // plumbing
 
 static test_t compiling_tests[] = {
@@ -83,6 +92,7 @@ static test_t compiling_tests[] = {
   TEST("/comparison", comparison),
   TEST("/strings", strings),
   TEST("/global-variables", global_variables),
+  TEST("/local-variables", local_variables),
   TESTS_END,
 };
 

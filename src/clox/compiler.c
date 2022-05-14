@@ -333,6 +333,7 @@ static void named_variable(token_t name, bool can_assign) {
     get_op = OP_GET_LOCAL;
     set_op = OP_SET_LOCAL;
   } else {
+    arg = identifier_constant(&name);
     get_op = OP_GET_GLOBAL;
     set_op = OP_SET_GLOBAL;
   }
