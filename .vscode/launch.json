@@ -5,12 +5,13 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "debug main",
+      "name": "debug scratch",
       "type": "lldb",
       "request": "launch",
       "program": "${workspaceFolder}/.build/clox",
-      "args": [],
-      "cwd": "${workspaceFolder}"
+      "args": ["scratch.lox"],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "make_debug"
     },
     {
       "name": "debug test",

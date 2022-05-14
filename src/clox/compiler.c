@@ -36,7 +36,19 @@ typedef struct {
   precedence_t precedence;
 } parse_rule_t;
 
+typedef struct {
+  token_t name;
+  int depth;
+} local_t;
+
+typedef struct {
+  local_t locals[UINT8_COUNT];
+  int local_count;
+  int scope_depth;
+} compiler_t;
+
 parser_t parser;
+compiler_t* current = NULL;
 chunk_t* compiling_chunk;
 
 static chunk_t* current_chunk() {
@@ -129,6 +141,12 @@ static void emit_constant(value_t value) {
   emit_bytes(OP_CONSTANT, make_constant(value));
 }
 
+static void init_compiler(compiler_t* compiler) {
+  compiler->local_count = 0;
+  compiler->scope_depth = 0;
+  current = compiler;
+}
+
 static void end_compiler() {
   emit_return();
 #ifdef DEBUG_PRINT_CODE
@@ -136,6 +154,21 @@ static void end_compiler() {
     disassemble_chunk(current_chunk(), "code");
   }
 #endif
+}
+
+static void begin_scope() {
+  current->scope_depth++;
+}
+
+static void end_scope() {
+  current->scope_depth--;
+
+  while (
+    current->local_count > 0 &&
+    current->locals[current->local_count - 1].depth > current->scope_depth) {
+    emit_byte(OP_POP);
+    current->local_count--;
+  }
 }
 
 static void expression();
@@ -148,12 +181,76 @@ static uint8_t identifier_constant(token_t* name) {
   return make_constant(OBJ_VAL(copy_string(name->start, name->length)));
 }
 
+static bool identifiers_equal(token_t* a, token_t* b) {
+  if (a->length != b->length)
+    return false;
+  return memcmp(a->start, b->start, a->length) == 0;
+}
+
+static int resolve_local(compiler_t* compiler, token_t* name) {
+  for (int i = compiler->local_count - 1; i >= 0; i--) {
+    local_t* local = &compiler->locals[i];
+    if (identifiers_equal(name, &local->name)) {
+      if (local->depth == -1) {
+        error("Can't read local variable in it's own initializer.");
+      }
+      return i;
+    }
+  }
+  return -1;
+}
+
+static void add_local(token_t name) {
+  if (current->local_count == UINT8_COUNT) {
+    error("Too many local variables in function.");
+    return;
+  }
+
+  local_t* local = &current->locals[current->local_count++];
+  local->name = name;
+  local->depth = -1;
+}
+
+static void declare_variable() {
+  if (current->scope_depth == 0)
+    return;
+
+  token_t* name = &parser.previous;
+
+  for (int i = current->local_count - 1; i >= 0; i--) {
+    local_t* local = &current->locals[i];
+    if (local->depth != -1 && local->depth < current->scope_depth) {
+      break;
+    }
+    if (identifiers_equal(name, &local->name)) {
+      error("Already a variable with this name in this scope.");
+    }
+  }
+
+  add_local(*name);
+}
+
 static uint8_t parse_variable(const char* error_message) {
   consume(TOKEN_IDENTIFIER, error_message);
+
+  declare_variable();
+  if (current->scope_depth > 0) {
+    return 0;
+  }
+
   return identifier_constant(&parser.previous);
 }
 
+static void mark_initialized() {
+  current->locals[current->local_count - 1].depth = current->scope_depth;
+}
+
 static void define_variable(uint8_t global) {
+  if (current->scope_depth > 0) {
+    mark_initialized();
+    return;
+  }
+
   emit_bytes(OP_DEFINE_GLOBAL, global);
 }
 
@@ -230,13 +327,21 @@ static void string(bool can_assign) {
 }
 
 static void named_variable(token_t name, bool can_assign) {
-  uint8_t arg = identifier_constant(&name);
+  uint8_t get_op, set_op;
+  int arg = resolve_local(current, &name);
+  if (arg != -1) {
+    get_op = OP_GET_LOCAL;
+    set_op = OP_SET_LOCAL;
+  } else {
+    get_op = OP_GET_GLOBAL;
+    set_op = OP_SET_GLOBAL;
+  }
 
   if (can_assign && match(TOKEN_EQUAL)) {
     expression();
-    emit_bytes(OP_SET_GLOBAL, arg);
+    emit_bytes(set_op, (uint8_t)arg);
   } else {
-    emit_bytes(OP_GET_GLOBAL, arg);
+    emit_bytes(get_op, (uint8_t)arg);
   }
 }
 
@@ -336,6 +441,14 @@ static void expression() {
   parse_precedence(PREC_ASSIGNMENT);
 }
 
+static void block() {
+  while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
+    declaration();
+  }
+
+  consume(TOKEN_RIGHT_BRACE, "Expected `}` after block.");
+}
+
 static void var_declaration() {
   uint8_t global = parse_variable("Expected variable name.");
 
@@ -400,6 +513,10 @@ static void declaration() {
 static void statement() {
   if (match(TOKEN_PRINT)) {
     print_statement();
+  } else if (match(TOKEN_LEFT_BRACE)) {
+    begin_scope();
+    block();
+    end_scope();
   } else {
     expression_statement();
   }
@@ -407,6 +524,8 @@ static void statement() {
 
 bool compile(const char* source, chunk_t* chunk) {
   init_scanner(source);
+  compiler_t compiler;
+  init_compiler(&compiler);
 
   compiling_chunk = chunk;
   parser.had_error = false;

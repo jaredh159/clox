@@ -19,6 +19,9 @@ clox:
 run:
 	make && ./.build/clox
 
+scratch:
+	make && ./.build/clox scratch.lox
+
 test:
 	cc -o ./.build/test \
 	./src/test/test.c \
