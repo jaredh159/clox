@@ -41,7 +41,15 @@ typedef struct {
   int depth;
 } local_t;
 
-typedef struct {
+typedef enum {
+  TYPE_FUNCTION,
+  TYPE_SCRIPT,
+} function_type_t;
+
+typedef struct compiler_t {
+  struct compiler_t* enclosing;
+  obj_function_t* function;
+  function_type_t type;
   local_t locals[UINT8_COUNT];
   int local_count;
   int scope_depth;
@@ -49,10 +57,9 @@ typedef struct {
 
 parser_t parser;
 compiler_t* current = NULL;
-chunk_t* compiling_chunk;
 
 static chunk_t* current_chunk() {
-  return compiling_chunk;
+  return &current->function->chunk;
 }
 
 static void error_at(token_t* token, const char* message) {
@@ -67,7 +74,7 @@ static void error_at(token_t* token, const char* message) {
   } else if (token->type == TOKEN_ERROR) {
     // do nothing ¯\_(ツ)_/¯
   } else {
-    fprintf(stderr, " at '%.*s'", token->length, token->start);
+    fprintf(stderr, " at `%.*s`", token->length, token->start);
   }
 
   fprintf(stderr, ": %s\n", message);
@@ -123,7 +130,25 @@ static void emit_bytes(uint8_t byte1, uint8_t byte2) {
   emit_byte(byte2);
 }
 
+static void emit_loop(int loop_start) {
+  emit_byte(OP_LOOP);
+
+  int offset = current_chunk()->count - loop_start + 2;
+  if (offset > UINT16_MAX)
+    error("Loop body too large.");
+
+  emit_byte((offset >> 8) & 0xff);
+  emit_byte(offset & 0xff);
+}
+
+static int emit_jump(uint8_t instruction) {
+  emit_byte(instruction);
+  emit_bytes(0xff, 0xff);  // placeholders
+  return current_chunk()->count - 2;
+}
+
 static void emit_return() {
+  emit_byte(OP_NIL);
   emit_byte(OP_RETURN);
 }
 
@@ -141,19 +166,52 @@ static void emit_constant(value_t value) {
   emit_bytes(OP_CONSTANT, make_constant(value));
 }
 
-static void init_compiler(compiler_t* compiler) {
-  compiler->local_count = 0;
-  compiler->scope_depth = 0;
-  current = compiler;
+static void patch_jump(int offset) {
+  // -2 to adjust for the bytecode for the jump offset itself
+  int jump = current_chunk()->count - offset - 2;
+
+  if (jump > UINT16_MAX) {
+    error("Too much code to jump over.");
+  }
+
+  current_chunk()->code[offset] = (jump >> 8) & 0xff;
+  current_chunk()->code[offset + 1] = jump & 0xff;
 }
 
-static void end_compiler() {
+static void init_compiler(compiler_t* compiler, function_type_t type) {
+  compiler->enclosing = current;
+  compiler->function = NULL;
+  compiler->type = type;
+  compiler->local_count = 0;
+  compiler->scope_depth = 0;
+  compiler->function = new_function();
+  current = compiler;
+
+  if (type != TYPE_SCRIPT) {
+    current->function->name =
+      copy_string(parser.previous.start, parser.previous.length);
+  }
+
+  local_t* local = &current->locals[current->local_count++];
+  local->depth = 0;
+  local->name.start = "";
+  local->name.length = 0;
+}
+
+static obj_function_t* end_compiler() {
   emit_return();
+  obj_function_t* function = current->function;
+
 #ifdef DEBUG_PRINT_CODE
   if (!parser.had_error) {
-    disassemble_chunk(current_chunk(), "code");
+    disassemble_chunk(current_chunk(),
+      function->name != NULL ? function->name->chars : "<script>");
+    puts("");
   }
 #endif
+
+  current = current->enclosing;
+  return function;
 }
 
 static void begin_scope() {
@@ -242,6 +300,8 @@ static uint8_t parse_variable(const char* error_message) {
 }
 
 static void mark_initialized() {
+  if (current->scope_depth == 0)
+    return;
   current->locals[current->local_count - 1].depth = current->scope_depth;
 }
 
@@ -252,6 +312,30 @@ static void define_variable(uint8_t global) {
   }
 
   emit_bytes(OP_DEFINE_GLOBAL, global);
+}
+
+static uint8_t argument_list() {
+  uint8_t arg_count = 0;
+  if (!check(TOKEN_RIGHT_PAREN)) {
+    do {
+      expression();
+      if (arg_count == 255) {
+        error("Can't have more than 255 arguments");
+      }
+      arg_count++;
+    } while (match(TOKEN_COMMA));
+  }
+  consume(TOKEN_RIGHT_PAREN, "Expected `)` after arguments.");
+  return arg_count;
+}
+
+static void and_(bool can_assign) {
+  int end_jump = emit_jump(OP_JUMP_IF_FALSE);
+
+  emit_byte(OP_POP);
+  parse_precedence(PREC_AND);
+
+  patch_jump(end_jump);
 }
 
 static void binary(bool can_assign) {
@@ -295,6 +379,11 @@ static void binary(bool can_assign) {
   }
 }
 
+static void call(bool can_assign) {
+  uint8_t arg_count = argument_list();
+  emit_bytes(OP_CALL, arg_count);
+}
+
 static void literal(bool can_assign) {
   switch (parser.previous.type) {
     case TOKEN_FALSE:
@@ -319,6 +408,17 @@ static void grouping(bool can_assign) {
 static void number(bool can_assign) {
   double value = strtod(parser.previous.start, NULL);
   emit_constant(NUMBER_VAL(value));
+}
+
+static void or_(bool can_assign) {
+  int else_jump = emit_jump(OP_JUMP_IF_FALSE);
+  int end_jump = emit_jump(OP_JUMP);
+
+  patch_jump(else_jump);
+  emit_byte(OP_POP);
+
+  parse_precedence(PREC_OR);
+  patch_jump(end_jump);
 }
 
 static void string(bool can_assign) {
@@ -370,7 +470,7 @@ static void unary(bool can_assign) {
 }
 
 parse_rule_t rules[] = {
-  [TOKEN_LEFT_PAREN] = {grouping, NULL, PREC_NONE},
+  [TOKEN_LEFT_PAREN] = {grouping, call, PREC_CALL},
   [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
   [TOKEN_LEFT_BRACE] = {NULL, NULL, PREC_NONE},
   [TOKEN_RIGHT_BRACE] = {NULL, NULL, PREC_NONE},
@@ -392,7 +492,7 @@ parse_rule_t rules[] = {
   [TOKEN_IDENTIFIER] = {variable, NULL, PREC_NONE},
   [TOKEN_STRING] = {string, NULL, PREC_NONE},
   [TOKEN_NUMBER] = {number, NULL, PREC_NONE},
-  [TOKEN_AND] = {NULL, NULL, PREC_NONE},
+  [TOKEN_AND] = {NULL, and_, PREC_AND},
   [TOKEN_CLASS] = {NULL, NULL, PREC_NONE},
   [TOKEN_ELSE] = {NULL, NULL, PREC_NONE},
   [TOKEN_FALSE] = {literal, NULL, PREC_NONE},
@@ -400,7 +500,7 @@ parse_rule_t rules[] = {
   [TOKEN_FUN] = {NULL, NULL, PREC_NONE},
   [TOKEN_IF] = {NULL, NULL, PREC_NONE},
   [TOKEN_NIL] = {literal, NULL, PREC_NONE},
-  [TOKEN_OR] = {NULL, NULL, PREC_NONE},
+  [TOKEN_OR] = {NULL, or_, PREC_OR},
   [TOKEN_PRINT] = {NULL, NULL, PREC_NONE},
   [TOKEN_RETURN] = {NULL, NULL, PREC_NONE},
   [TOKEN_SUPER] = {NULL, NULL, PREC_NONE},
@@ -450,6 +550,38 @@ static void block() {
   consume(TOKEN_RIGHT_BRACE, "Expected `}` after block.");
 }
 
+static void function(function_type_t type) {
+  compiler_t compiler;
+  init_compiler(&compiler, type);
+  begin_scope();
+
+  consume(TOKEN_LEFT_PAREN, "Expected `(` after function name.");
+  if (!check(TOKEN_RIGHT_PAREN)) {
+    do {
+      current->function->arity++;
+      if (current->function->arity > 255) {
+        error_at_current("Can't have more than 255 parameters.");
+      }
+      uint8_t constant = parse_variable("Expected parameter name.");
+      define_variable(constant);
+    } while (match(TOKEN_COMMA));
+  }
+
+  consume(TOKEN_RIGHT_PAREN, "Expected `)` after parameters.");
+  consume(TOKEN_LEFT_BRACE, "Expected `{` before function body.");
+  block();
+
+  obj_function_t* function = end_compiler();
+  emit_bytes(OP_CONSTANT, make_constant(OBJ_VAL(function)));
+}
+
+static void fun_declaration() {
+  uint8_t global = parse_variable("Expected function name.");
+  mark_initialized();
+  function(TYPE_FUNCTION);
+  define_variable(global);
+}
+
 static void var_declaration() {
   uint8_t global = parse_variable("Expected variable name.");
 
@@ -470,10 +602,108 @@ static void expression_statement() {
   emit_byte(OP_POP);
 }
 
+static void for_statement() {
+  begin_scope();
+  consume(TOKEN_LEFT_PAREN, "Expected `(` after `for`.");
+
+  // 1) compile initializer
+  if (match(TOKEN_SEMICOLON)) {
+    // none
+  } else if (match(TOKEN_VAR)) {
+    var_declaration();
+  } else {
+    expression_statement();
+  }
+
+  int loop_start = current_chunk()->count;
+
+  // 2) condition
+  int exit_jump = -1;
+  if (!match(TOKEN_SEMICOLON)) {
+    expression();
+    consume(TOKEN_SEMICOLON, "Expected `;` after loop condition.");
+
+    // jump out of the loop if the condition is false
+    exit_jump = emit_jump(OP_JUMP_IF_FALSE);
+    emit_byte(OP_POP);  // condition
+  }
+
+  // 3) increment
+  if (!match(TOKEN_RIGHT_PAREN)) {
+    int body_jump = emit_jump(OP_JUMP);
+    int increment_start = current_chunk()->count;
+    expression();
+    emit_byte(OP_POP);
+    consume(TOKEN_RIGHT_PAREN, "Expected `)` after for clauses.");
+
+    emit_loop(loop_start);
+    loop_start = increment_start;
+    patch_jump(body_jump);
+  }
+
+  statement();
+  emit_loop(loop_start);
+
+  if (exit_jump != -1) {
+    patch_jump(exit_jump);
+    emit_byte(OP_POP);  // condition
+  }
+
+  end_scope();
+}
+
+static void if_statement() {
+  consume(TOKEN_LEFT_PAREN, "Expected `(` after `if`.");
+  expression();
+  consume(TOKEN_RIGHT_PAREN, "Expected `)` after `if`.");
+
+  int then_jump = emit_jump(OP_JUMP_IF_FALSE);
+  emit_byte(OP_POP);
+  statement();
+
+  int else_jump = emit_jump(OP_JUMP);
+
+  patch_jump(then_jump);
+  emit_byte(OP_POP);
+
+  if (match(TOKEN_ELSE))
+    statement();
+  patch_jump(else_jump);
+}
+
 static void print_statement() {
   expression();
   consume(TOKEN_SEMICOLON, "Expected `;` after value.");
   emit_byte(OP_PRINT);
+}
+
+static void return_statement() {
+  if (current->type == TYPE_SCRIPT) {
+    error("Can't return from top-level code.");
+  }
+
+  if (match(TOKEN_SEMICOLON)) {
+    emit_return();
+  } else {
+    expression();
+    consume(TOKEN_SEMICOLON, "Expected `;` after return value.");
+    emit_byte(OP_RETURN);
+  }
+}
+
+static void while_statement() {
+  int loop_start = current_chunk()->count;
+  consume(TOKEN_LEFT_PAREN, "Expected `(` after `while`.");
+  expression();
+  consume(TOKEN_RIGHT_PAREN, "Expected `)` after condition.");
+
+  int exit_jump = emit_jump(OP_JUMP_IF_FALSE);
+  emit_byte(OP_POP);
+  statement();
+  emit_loop(loop_start);
+
+  patch_jump(exit_jump);
+  emit_byte(OP_POP);
 }
 
 static void synchronize() {
@@ -500,7 +730,9 @@ static void synchronize() {
 }
 
 static void declaration() {
-  if (match(TOKEN_VAR)) {
+  if (match(TOKEN_FUN)) {
+    fun_declaration();
+  } else if (match(TOKEN_VAR)) {
     var_declaration();
   } else {
     statement();
@@ -514,6 +746,14 @@ static void declaration() {
 static void statement() {
   if (match(TOKEN_PRINT)) {
     print_statement();
+  } else if (match(TOKEN_FOR)) {
+    for_statement();
+  } else if (match(TOKEN_IF)) {
+    if_statement();
+  } else if (match(TOKEN_RETURN)) {
+    return_statement();
+  } else if (match(TOKEN_WHILE)) {
+    while_statement();
   } else if (match(TOKEN_LEFT_BRACE)) {
     begin_scope();
     block();
@@ -523,12 +763,11 @@ static void statement() {
   }
 }
 
-bool compile(const char* source, chunk_t* chunk) {
+obj_function_t* compile(const char* source) {
   init_scanner(source);
   compiler_t compiler;
-  init_compiler(&compiler);
+  init_compiler(&compiler, TYPE_SCRIPT);
 
-  compiling_chunk = chunk;
   parser.had_error = false;
   parser.panic_mode = false;
 
@@ -538,6 +777,6 @@ bool compile(const char* source, chunk_t* chunk) {
     declaration();
   }
 
-  end_compiler();
-  return !parser.had_error;
+  obj_function_t* function = end_compiler();
+  return parser.had_error ? NULL : function;
 }

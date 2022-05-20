@@ -6,6 +6,7 @@
 
 typedef enum {
   OP_ADD,
+  OP_CALL,
   OP_CONSTANT,
   OP_CONSTANT_LONG,
   OP_DEFINE_GLOBAL,
@@ -15,7 +16,10 @@ typedef enum {
   OP_GET_GLOBAL,
   OP_GET_LOCAL,
   OP_GREATER,
+  OP_JUMP,
+  OP_JUMP_IF_FALSE,
   OP_LESS,
+  OP_LOOP,
   OP_MULTIPLY,
   OP_NEGATE,
   OP_NIL,

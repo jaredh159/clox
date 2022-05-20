@@ -4,6 +4,7 @@ static void* setup(const param_t params[], void* user_data);
 static void tear_down(void* fixture);
 
 extern VM vm;
+extern value_t __test_last_value;
 
 void assert_clox_number(const char* source, double number);
 void assert_clox_bool(const char* source, bool boolean);
@@ -76,9 +77,49 @@ static result_t global_variables(const param_t params[], void* fixture) {
 static result_t local_variables(const param_t params[], void* fixture) {
   assert_clox_number("var g; { var l = 3; g = l; } g;", 3);
   assert_clox_number(
-    "var g; { var shadow = 3; { var shadow = 4; g = shadow; } } g;", 4);
+    "var g; { var shadow = 30; { var shadow = 4; g = shadow; } } g;", 4);
   assert_clox_number(
-    "var g; { var shadow = 3; { var shadow = 4; } g = shadow; } g;", 3);
+    "var g; { var shadow = 99; { var shadow = 4; } g = shadow; } g;", 99);
+  return MUNIT_OK;
+}
+
+static result_t if_statement(const param_t params[], void* fixture) {
+  assert_clox_number("var x = 1; if (true) { x = 2; } x;", 2);
+  assert_clox_number("var x = 1; if (false) { x = 2; } x;", 1);
+  assert_clox_number("var x = 1; if (false) { x = 2; } else { x = 3; } x;", 3);
+  assert_clox_number("var x = 1; if (true) { x = 2; } else { x = 3; } x;", 2);
+  return MUNIT_OK;
+}
+
+static result_t logical_operators(const param_t params[], void* fixture) {
+  assert_clox_number("var x = 1; if (true and true) { x = 2; } x;", 2);
+  assert_clox_number("var x = 1; if (true and false) { x = 2; } x;", 1);
+  assert_clox_number("var x = 1; if (false or true) { x = 2; } x;", 2);
+  assert_clox_number("var x = 1; if (false or false) { x = 2; } x;", 1);
+  return MUNIT_OK;
+}
+
+static result_t while_statements(const param_t params[], void* fixture) {
+  assert_clox_number("var x = 1; while (x < 10) { x = x + 1; } x;", 10);
+  return MUNIT_OK;
+}
+
+static result_t for_statements(const param_t params[], void* fixture) {
+  assert_clox_number(
+    "var x = 1; for (var y = 1; y < 10; y = y + 1) { x = x + 1; } x;", 10);
+  return MUNIT_OK;
+}
+
+static result_t functions(const param_t params[], void* fixture) {
+  assert_clox_number("fun sq(x) { return x * x; } sq(3);", 9);
+  assert_clox_number(
+    "fun sq(x) { return x * x; }"
+    "fun incr(fn, x) { return fn(x) + 1; }"
+    "incr(sq, 3);",
+    10);
+  assert_clox_number("var x; fun f() { return 3; } x = f(); x;", 3);
+  assert_clox_nil("var x; fun f() { return; } x = f(); x;");
+  assert_clox_nil("var x; fun f() {} x = f(); x;");
   return MUNIT_OK;
 }
 
@@ -93,6 +134,11 @@ static test_t compiling_tests[] = {
   TEST("/strings", strings),
   TEST("/global-variables", global_variables),
   TEST("/local-variables", local_variables),
+  TEST("/if-statement", if_statement),
+  TEST("/logical-operators", logical_operators),
+  TEST("/while-statements", while_statements),
+  TEST("/for-statements", for_statements),
+  TEST("/functions", functions),
   TESTS_END,
 };
 
@@ -107,33 +153,45 @@ static void tear_down(void* fixture) {
   free_vm();
 }
 
+value_t get_last_value(void) {
+  return __test_last_value;
+}
+
 void assert_clox_number(const char* source, double number) {
   interpret(source);
-  value_t top = vm.stack_top[0];
+  value_t top = get_last_value();
   assert_int(top.type, ==, VAL_NUMBER);
   assert_double(AS_NUMBER(top), ==, number);
+  free_vm();
+  init_vm();
 }
 
 void assert_clox_bool(const char* source, bool boolean) {
   interpret(source);
-  value_t top = vm.stack_top[0];
+  value_t top = get_last_value();
   assert_int(top.type, ==, VAL_BOOL);
   if (boolean) {
     assert_true(AS_BOOL(top));
   } else {
     assert_false(AS_BOOL(top));
   }
+  free_vm();
+  init_vm();
 }
 
 void assert_clox_nil(const char* source) {
   interpret(source);
-  value_t top = vm.stack_top[0];
+  value_t top = get_last_value();
   assert_int(top.type, ==, VAL_NIL);
+  free_vm();
+  init_vm();
 }
 
 void assert_clox_string(const char* source, const char* expected) {
   interpret(source);
-  value_t top = vm.stack_top[0];
+  value_t top = get_last_value();
   assert_int(top.type, ==, VAL_OBJ);
   assert_string_equal(AS_CSTRING(top), expected);
+  free_vm();
+  init_vm();
 }

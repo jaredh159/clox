@@ -7,6 +7,8 @@ static int constant_instruction(const char* name, chunk_t* chunk, int offset);
 static int byte_instruction(const char* name, chunk_t* chunk, int offset);
 static int long_constant_instruction(
   const char* name, chunk_t* chunk, int offset);
+static int jump_instruction(
+  const char* name, int sign, chunk_t* chunk, int offset);
 
 void disassemble_chunk(chunk_t* chunk, const char* name) {
   printf("== %s ==\n", name);
@@ -38,10 +40,18 @@ int disassemble_instruction(chunk_t* chunk, int offset) {
       return constant_instruction("OP_SET_GLOBAL", chunk, offset);
     case OP_CONSTANT_LONG:
       return long_constant_instruction("OP_CONSTANT_LONG", chunk, offset);
+    case OP_JUMP:
+      return jump_instruction("OP_JUMP", 1, chunk, offset);
+    case OP_JUMP_IF_FALSE:
+      return jump_instruction("OP_JUMP_IF_FALSE", 1, chunk, offset);
+    case OP_LOOP:
+      return jump_instruction("OP_LOOP", -1, chunk, offset);
     case OP_SET_LOCAL:
       return byte_instruction("OP_SET_LOCAL", chunk, offset);
     case OP_GET_LOCAL:
       return byte_instruction("OP_GET_LOCAL", chunk, offset);
+    case OP_CALL:
+      return byte_instruction("OP_CALL", chunk, offset);
     case OP_ADD:
       return simple_instruction("OP_ADD", offset);
     case OP_SUBTRACT:
@@ -105,4 +115,12 @@ static int byte_instruction(const char* name, chunk_t* chunk, int offset) {
   uint8_t slot = chunk->code[offset + 1];
   printf("%-16s %4d\n", name, slot);
   return offset + 2;
+}
+
+static int jump_instruction(
+  const char* name, int sign, chunk_t* chunk, int offset) {
+  uint16_t jump = (uint16_t)(chunk->code[offset + 1] << 8);
+  jump |= chunk->code[offset + 2];
+  printf("%-16s %4d -> %d\n", name, offset, offset + 3 + sign * jump);
+  return offset + 3;
 }

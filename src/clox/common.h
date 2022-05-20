@@ -8,15 +8,19 @@
 #include <stdlib.h>
 #include <string.h>
 
-// #define DEBUG_PRINT_VM_RETURN
-// #define DEBUG_PRINT_CODE
-// #define DEBUG_TRACE_EXECUTION
+#ifdef DEBUG
+#define DEBUG_PRINT_VM_RETURN
+#define DEBUG_PRINT_CODE
+#define DEBUG_TRACE_EXECUTION
+#endif
 
 #define UINT8_COUNT (UINT8_MAX + 1)
 
-#define EXIT(code)                               \
-  fprintf(stderr, "\x1b[31m" #code "\x1b[0m\n"); \
-  exit((code))
+#define EXIT(code)                                 \
+  do {                                             \
+    fprintf(stderr, "\x1b[31m" #code "\x1b[0m\n"); \
+    exit((code));                                  \
+  } while (false)
 
 typedef enum {
   ERR_OUT_OF_MEMORY = 1,
