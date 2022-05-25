@@ -18,15 +18,36 @@ static obj_t* allocate_object(size_t size, obj_type_t type) {
 obj_function_t* new_function() {
   obj_function_t* function = ALLOCATE_OBJ(obj_function_t, OBJ_FUNCTION);
   function->arity = 0;
+  function->upvalue_count = 0;
   function->name = NULL;
   init_chunk(&function->chunk);
   return function;
+}
+
+obj_upvalue_t* new_upvalue(value_t* slot) {
+  obj_upvalue_t* upvalue = ALLOCATE_OBJ(obj_upvalue_t, OBJ_UPVALUE);
+  upvalue->location = slot;
+  upvalue->next = NULL;
+  upvalue->closed = NIL_VAL;
+  return upvalue;
 }
 
 obj_native_t* new_native(native_fn_t function) {
   obj_native_t* native = ALLOCATE_OBJ(obj_native_t, OBJ_NATIVE);
   native->function = function;
   return native;
+}
+
+obj_closure_t* new_closure(obj_function_t* function) {
+  obj_upvalue_t** upvalues = ALLOCATE(obj_upvalue_t*, function->upvalue_count);
+  for (int i = 0; i < function->upvalue_count; i++) {
+    upvalues[i] = NULL;
+  }
+  obj_closure_t* closure = ALLOCATE_OBJ(obj_closure_t, OBJ_CLOSURE);
+  closure->function = function;
+  closure->upvalues = upvalues;
+  closure->upvalue_count = function->upvalue_count;
+  return closure;
 }
 
 static obj_string_t* allocate_string(char* chars, int length, uint32_t hash) {
@@ -88,6 +109,12 @@ void print_object(value_t value) {
       break;
     case OBJ_NATIVE:
       printf("<native fn>");
+      break;
+    case OBJ_CLOSURE:
+      print_function(AS_CLOSURE(value)->function);
+      break;
+    case OBJ_UPVALUE:
+      printf("upvalue");
       break;
   }
 }
