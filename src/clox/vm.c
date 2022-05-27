@@ -259,6 +259,13 @@ interpret_result_t interpret(const char* source) {
 void init_vm() {
   reset_stack();
   vm.objects = NULL;
+
+  vm.bytes_allocated = 0;
+  vm.next_gc = 1024 * 1024;
+  vm.gray_count = 0;
+  vm.gray_capacity = 0;
+  vm.gray_stack = 0;
+
   init_table(&vm.globals);
   init_table(&vm.strings);
   define_native("clock", clock_native);
@@ -399,8 +406,8 @@ static bool is_falsey(value_t value) {
 }
 
 static void concatenate() {
-  obj_string_t* b = AS_STRING(pop());
-  obj_string_t* a = AS_STRING(pop());
+  obj_string_t* b = AS_STRING(peek(0));
+  obj_string_t* a = AS_STRING(peek(1));
 
   int length = a->length + b->length;
   char* chars = ALLOCATE(char, length + 1);
@@ -409,6 +416,8 @@ static void concatenate() {
   chars[length] = '\0';
 
   obj_string_t* result = take_string(chars, length);
+  pop();
+  pop();
   push(OBJ_VAL(result));
 }
 

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include "common.h"
 #include "memory.h"
+#include "vm.h"
 
 static void init_lines(lines_t* array);
 static void encode_line(lines_t* array, int line);
@@ -51,7 +52,9 @@ void write_constant(chunk_t* chunk, value_t value, int line) {
 }
 
 int add_constant(chunk_t* chunk, value_t value) {
+  push(value);
   write_value_array(&chunk->constants, value);
+  pop();
   return chunk->constants.count - 1;
 }
 
