@@ -219,6 +219,38 @@ static interpret_result_t run() {
         *frame->closure->upvalues[slot]->location = peek(0);
         break;
       }
+      case OP_GET_PROPERTY: {
+        if (!IS_INSTANCE(peek(0))) {
+          runtime_error("Only instances have properties.");
+          return INTERPRET_RUNTIME_ERROR;
+        }
+
+        obj_instance_t* instance = AS_INSTANCE(peek(0));
+        obj_string_t* name = READ_STRING();
+
+        value_t value;
+        if (table_get(&instance->fields, name, &value)) {
+          pop();  // instance
+          push(value);
+          break;
+        }
+
+        runtime_error("Undefined property '%s'.", name->chars);
+        return INTERPRET_RUNTIME_ERROR;
+      }
+      case OP_SET_PROPERTY: {
+        if (!IS_INSTANCE(peek(1))) {
+          runtime_error("Only instances have fields.");
+          return INTERPRET_RUNTIME_ERROR;
+        }
+
+        obj_instance_t* instance = AS_INSTANCE(peek(1));
+        table_set(&instance->fields, READ_STRING(), peek(0));
+        value_t value = pop();
+        pop();  // instance
+        push(value);
+        break;
+      }
       case OP_EQUAL: {
         value_t b = pop();
         value_t a = pop();
@@ -230,6 +262,9 @@ static interpret_result_t run() {
         break;
       case OP_LESS:
         BINARY_OP(BOOL_VAL, <);
+        break;
+      case OP_CLASS:
+        push(OBJ_VAL(new_class(READ_STRING())));
         break;
     }
   }
@@ -320,6 +355,11 @@ static bool call_value(value_t callee, int arg_count) {
         value_t result = native(arg_count, vm.stack_top - arg_count);
         vm.stack_top -= arg_count + 1;
         push(result);
+        return true;
+      }
+      case OBJ_CLASS: {
+        obj_class_t* class = AS_CLASS(callee);
+        vm.stack_top[-arg_count - 1] = OBJ_VAL(new_instance(class));
         return true;
       }
       default:

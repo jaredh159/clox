@@ -172,6 +172,11 @@ static result_t closures(const param_t params[], void* fixture) {
   return MUNIT_OK;
 }
 
+static result_t classes(const param_t params[], void* fixture) {
+  assert_clox_number("class Foo {} var foo = Foo(); foo.bar = 1; foo.bar;", 1);
+  return MUNIT_OK;
+}
+
 // plumbing
 
 static test_t compiling_tests[] = {
@@ -189,6 +194,7 @@ static test_t compiling_tests[] = {
   TEST("/for-statements", for_statements),
   TEST("/functions", functions),
   TEST("/closures", closures),
+  TEST("/classes", classes),
   TESTS_END,
 };
 

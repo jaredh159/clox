@@ -21,6 +21,12 @@ static obj_t* allocate_object(size_t size, obj_type_t type) {
   return object;
 }
 
+obj_class_t* new_class(obj_string_t* name) {
+  obj_class_t* class = ALLOCATE_OBJ(obj_class_t, OBJ_CLASS);
+  class->name = name;
+  return class;
+}
+
 obj_function_t* new_function() {
   obj_function_t* function = ALLOCATE_OBJ(obj_function_t, OBJ_FUNCTION);
   function->arity = 0;
@@ -124,5 +130,17 @@ void print_object(value_t value) {
     case OBJ_UPVALUE:
       printf("upvalue");
       break;
+    case OBJ_CLASS:
+      printf("%s", AS_CLASS(value)->name->chars);
+    case OBJ_INSTANCE:
+      printf("%s instance", AS_INSTANCE(value)->class->name->chars);
+      break;
   }
+}
+
+obj_instance_t* new_instance(obj_class_t* class) {
+  obj_instance_t* instance = ALLOCATE_OBJ(obj_instance_t, OBJ_INSTANCE);
+  instance->class = class;
+  init_table(&instance->fields);
+  return instance;
 }

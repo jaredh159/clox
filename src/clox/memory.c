@@ -70,12 +70,23 @@ static void blacken_object(obj_t* object) {
   printf("\n");
 #endif
   switch (object->type) {
+    case OBJ_CLASS: {
+      obj_class_t* class = (obj_class_t*)object;
+      mark_object((obj_t*)class->name);
+      break;
+    }
     case OBJ_CLOSURE: {
       obj_closure_t* closure = (obj_closure_t*)object;
       mark_object((obj_t*)closure->function);
       for (int i = 0; i < closure->upvalue_count; i++) {
         mark_object((obj_t*)closure->upvalues[i]);
       }
+      break;
+    }
+    case OBJ_INSTANCE: {
+      obj_instance_t* instance = (obj_instance_t*)(object);
+      mark_object((obj_t*)instance->class);
+      mark_table(&instance->fields);
       break;
     }
     case OBJ_FUNCTION: {
@@ -105,6 +116,12 @@ static void free_object(obj_t* object) {
       FREE(obj_function_t, object);
       break;
     }
+    case OBJ_INSTANCE: {
+      obj_instance_t* instance = (obj_instance_t*)object;
+      free_table(&instance->fields);
+      FREE(obj_instance_t, object);
+      break;
+    }
     case OBJ_STRING: {
       obj_string_t* string = (obj_string_t*)(object);
       FREE_ARRAY(char, string->chars, string->length + 1);
@@ -123,6 +140,10 @@ static void free_object(obj_t* object) {
     }
     case OBJ_UPVALUE: {
       FREE(obj_upvalue_t, object);
+      break;
+    }
+    case OBJ_CLASS: {
+      FREE(obj_class_t, object);
       break;
     }
   }
